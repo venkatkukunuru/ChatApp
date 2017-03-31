@@ -15,13 +15,21 @@ protocol ChatDelegate {
     func didDisconnect();
 }
 
+protocol MessageDelegate {
+    func newMessageReceived(messageContent: AnyObject);
+}
+
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?;
     var xmppStream: XMPPStream?;
     var password: String?;
-    var isOpen: Bool = true;
+    var isOpen: Bool?;
+
+    // MARK:- Delegate
+    var chatDelegate:ChatDelegate?
+    var messageDelegate:MessageDelegate?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
@@ -99,5 +107,43 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         goOffline();
         xmppStream?.disconnect();
     }
+    
+    func xmppStreamDidConnect(_ sender: XMPPStream!) {
+         // connection to the server successful
+        isOpen = true;
+        do {
+            try xmppStream?.authenticate(withPassword: password);
+        } catch let error {
+            print(error.localizedDescription);
+        }
+
+    }
+
+    func xmppStreamDidAuthenticate(_ sender: XMPPStream!) {
+        // authentication successful
+        goOnline()
+    }
+    
+    func xmppStream(_ sender: XMPPStream!, didReceive message: XMPPMessage!) {
+        // message received
+    }
+    
+    func xmppStream(_ sender: XMPPStream!, didReceivePresence presence: XMPPPresence!) {
+        // a buddy went offline/online
+        let presenceType: String = presence.type();
+        let myUsername: String = sender.myJID.user
+        let presenceFromUser: String = presence.from().user
+        
+        if presenceFromUser != myUsername {
+            
+            if presenceType == "available" {
+                chatDelegate?.newBuddyOnline(buddyName: String(format: "%@%@%@", presenceFromUser, "jerry.local"))
+            } else if presenceType == "unavailable" {
+                chatDelegate?.buddyWentOffline(buddyName: String(format: "%@%@%@", presenceFromUser, "jerry.local"))
+            }
+            
+        }
+    }
+    
 }
 
